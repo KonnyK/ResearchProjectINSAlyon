@@ -1,3 +1,4 @@
+
 world = zeros(200,200,200); % 0=libre, 1=occupée -1=inconnu
 
 cube1 = cube([50,50,80], [150,150,110]);
@@ -10,79 +11,74 @@ drone_pos = [60,40,170];
 drone_maxDist = 500;
 siz = size(world);
 seenWorld = -ones(siz);
-FOV = demisphere(50, drone_pos);
+FOV = demisphere(150, drone_pos);
 
-X1 = zeros(length(FOV)+1,1);
-Y1 = zeros(length(FOV)+1,1);
-Z1 = zeros(length(FOV)+1,1);
-X1(1) = drone_pos(1);
-Y1(1) = drone_pos(2);
-Z1(1) = drone_pos(3);
-X2 = zeros(siz(1)*siz(2)*siz(3),1);
-Y2 = zeros(siz(1)*siz(2)*siz(3),1);
-Z2 = zeros(siz(1)*siz(2)*siz(3),1);
-Xf = zeros(round((2/3)*pi*drone_maxDist^3),1);
-Yf = zeros(round((2/3)*pi*drone_maxDist^3),1);
-Zf = zeros(round((2/3)*pi*drone_maxDist^3),1);
+seen = zeros(length(FOV)+1,3);
+seen(1,:) = drone_pos;
+unseen = zeros(siz(1)*siz(2)*siz(3),3);
+front = zeros(round((2/3)*pi*drone_maxDist^3),3);
+free = zeros(round((2/3)*pi*drone_maxDist^3),3);
 
-i=2;
-f=1;
+
 for index = 1:length(FOV)
     rc = raycast(world, drone_pos, [FOV(index,1),FOV(index,2),FOV(index,3)],drone_maxDist);
     for r = 1:length(rc)
         seenWorld(rc(r,1), rc(r,2), rc(r,3)) = world(rc(r,1), rc(r,2), rc(r,3));
-        if world(rc(r,1), rc(r,2), rc(r,3)) == 1
-            X1(i) = rc(r,1);
-            Y1(i) = rc(r,2);
-            Z1(i) = rc(r,3);
-            i = i+1;
-        end
-        if isFrontier(seenWorld, [rc(r,1),rc(r,2),rc(r,3)])
-            Xf(f) = rc(r,1);
-            Yf(f) = rc(r,2);
-            Zf(f) = rc(r,3);
-            f = f+1;
-        end
     end
 end
 
-j=1;
+fo=1;
+fe=1;
+s=2;
+u=1;
 for x = 1:siz(1)
     for y = 1:siz(2)
         for z = 1:siz(3)
-            if (world(x,y,z) == 1)
-                X2(j) = x;
-                Y2(j) = y;
-                Z2(j) = z;
-                j=j+1;
+            if isFrontier(seenWorld, [x,y,z])
+                front(fo,:) = [x,y,z];
+                fo = fo+1;
+            end
+            if seenWorld(x,y,z) == 1
+                seen(s,:) = [x,y,z];
+                s = s+1;
+            elseif world(x,y,z) == 1
+                unseen(u,:) = [x,y,z];
+                u = u+1;
+            elseif seenWorld(x,y,z) == 0
+                free(fe,:) = [x,y,z];
+                fe = fe+1;
             end
         end
     end
 end
-X1(i:length(X1)) = [];
-Y1(i:length(Y1)) = [];
-Z1(i:length(Z1)) = [];
-X2(j:length(X2)) = [];
-Y2(j:length(Y2)) = [];
-Z2(j:length(Z2)) = [];
-Xf(f:length(Xf)) = [];
-Yf(f:length(Yf)) = [];
-Zf(f:length(Zf)) = [];
+
+seen(s:length(seen),:) = [];
+unseen(u:length(unseen),:) = [];
+front(fo:length(front),:) = [];
+free(fe:length(free),:) = [];
 
 figure;
-scale = 20 * ones(length(X1),1);
+draw = [seen;unseen];
+Length = length(draw);
+scale = 5 * ones(Length,1);
 scale(1) = 100;
-scatter3(X1,Y1,Z1,scale,'filled','o');
+scale(length(seen)+1:Length) = 10;
+color = 0.5 * ones(Length, 3);
+color(1,:) = [1,0,0];
+color(2:length(seen),:) = repmat([0,0,1],length(seen)-1,1);
+scatter3(draw(:,1),draw(:,2),draw(:,3),scale,color,'filled','o');
 axis([1,siz(1),1,siz(2),1,siz(3)]);
 
 figure;
-scale = 20 * ones(length(X2),1);
-scatter3(X2,Y2,Z2,scale,'filled','o');
-axis([1,siz(1),1,siz(2),1,siz(3)]);
-
-figure;
-scale = 20 * ones(length(Xf),1);
-scatter3(Xf,Yf,Zf,scale,'filled','o');
+draw = [seen;front];
+Length = length(draw);
+scale = 5 * ones(Length,1);
+scale(1) = 100;
+color = 0.5 * ones(Length, 3);
+color(1,:) = [1,0,0];
+color(2:length(seen),:) = repmat([0,0,1],length(seen)-1,1);
+color(length(seen)+1:Length,:) = repmat([1,0.5,0],length(color)-length(seen),1);
+scatter3(draw(:,1),draw(:,2),draw(:,3),scale,color,'filled','o');
 axis([1,siz(1),1,siz(2),1,siz(3)]);
 
 function points = cube(P1, P2)
