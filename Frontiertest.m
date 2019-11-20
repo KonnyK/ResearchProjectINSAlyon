@@ -1,42 +1,42 @@
 
 world = zeros(200,200,200); % 0=libre, 1=occupée -1=inconnu
 
+%creating environment
 cube1 = cube([50,50,80], [150,150,110]);
 cube2 = cube([30,30,10], [50,50,120]);
 cube3 = cube([70,70,110], [120,120,160]);
 cube4 = cube([200,200,200], [180,180,1]);
 world = insert(world, [cube1;cube2;cube3;cube4], 1);
 
-drone_pos = [60,40,170];
-drone_maxDist = 500;
-siz = size(world);
-seenWorld = -ones(siz);
-FOV = demisphere(150, drone_pos);
+drone_pos = [60,40,170]; %positione du spectateur
+drone_maxDist = 500; %distance maximale à laquelle points sonts detectés
+siz = size(world); %pour racourcir du code plus tard
+seenWorld = -ones(siz); 
+FOV = demisphere(150, drone_pos); %nuage de points pour les raycast, le radius n'a rien a voir avec drone_maxDist
 
-seen = zeros(length(FOV)+1,3);
-seen(1,:) = drone_pos;
-unseen = zeros(siz(1)*siz(2)*siz(3),3);
-front = zeros(round((2/3)*pi*drone_maxDist^3),3);
-free = zeros(round((2/3)*pi*drone_maxDist^3),3);
+seen = zeros(length(FOV)+1,3); %tous points occupés et detectés par le drone + position du drone
+seen(1,:) = drone_pos; 
+unseen = zeros(siz(1)*siz(2)*siz(3),3); %touts points occupés et non detectés
+front = zeros(round((2/3)*pi*drone_maxDist^3),3); %touts points considérés comme frontière
 
 
-for index = 1:length(FOV)
+for index = 1:length(FOV) %raycast de drone_pose à chaque point du demisphere FOV
     rc = raycast(world, drone_pos, [FOV(index,1),FOV(index,2),FOV(index,3)],drone_maxDist);
-    for r = 1:length(rc)
+    for r = 1:length(rc) %touts points passés par le raycast ne sont plus inconnus et donc enregistré dans seenWorld
         seenWorld(rc(r,1), rc(r,2), rc(r,3)) = world(rc(r,1), rc(r,2), rc(r,3));
     end
 end
 
-fo=1;
-fe=1;
-s=2;
-u=1;
+f=1; %compteur de vraie longeur de front
+s=2; %compteur de vraie longeur de seen
+u=1; %compteur de vraie longeur de unseen
+
 for x = 1:siz(1)
     for y = 1:siz(2)
         for z = 1:siz(3)
             if isFrontier(seenWorld, [x,y,z])
-                front(fo,:) = [x,y,z];
-                fo = fo+1;
+                front(f,:) = [x,y,z];
+                f = f+1;
             end
             if seenWorld(x,y,z) == 1
                 seen(s,:) = [x,y,z];
@@ -44,44 +44,44 @@ for x = 1:siz(1)
             elseif world(x,y,z) == 1
                 unseen(u,:) = [x,y,z];
                 u = u+1;
-            elseif seenWorld(x,y,z) == 0
-                free(fe,:) = [x,y,z];
-                fe = fe+1;
             end
         end
     end
 end
 
+%coupage des array avec leur vraie longeur maintenant connue
 seen(s:length(seen),:) = [];
 unseen(u:length(unseen),:) = [];
-front(fo:length(front),:) = [];
-free(fe:length(free),:) = [];
+front(f:length(front),:) = [];
 
+%graphique pour touts les points occupés détectés et non détectés
 figure;
 draw = [seen;unseen];
 Length = length(draw);
-scale = 5 * ones(Length,1);
-scale(1) = 100;
-scale(length(seen)+1:Length) = 10;
-color = 0.5 * ones(Length, 3);
-color(1,:) = [1,0,0];
-color(2:length(seen),:) = repmat([0,0,1],length(seen)-1,1);
+scale = 5 * ones(Length,1); %largeur des points détectés
+scale(1) = 100; %largeur du point du drone
+scale(length(seen)+1:Length) = 10; %largeur des points non détectés
+color = 0.5 * ones(Length, 3); %couleur des points non détectés
+color(1,:) = [1,0,0]; %couleur du point du drone
+color(2:length(seen),:) = repmat([0,0,1],length(seen)-1,1); %couleur des points détectés
 scatter3(draw(:,1),draw(:,2),draw(:,3),scale,color,'filled','o');
 axis([1,siz(1),1,siz(2),1,siz(3)]);
 
+%graphique montrant points occupés détectés et points frontièrs
 figure;
 draw = [seen;front];
 Length = length(draw);
-scale = 5 * ones(Length,1);
-scale(1) = 100;
-color = 0.5 * ones(Length, 3);
-color(1,:) = [1,0,0];
-color(2:length(seen),:) = repmat([0,0,1],length(seen)-1,1);
-color(length(seen)+1:Length,:) = repmat([1,0.5,0],length(color)-length(seen),1);
+scale = 5 * ones(Length,1); %largeur des points détectés
+scale(1) = 100; %largeur du point drone
+color = repmat([1,0.5,0],Length,1); %couleur des points frontièrs
+color(1,:) = [1,0,0]; %couleur du point drone
+color(2:length(seen),:) = repmat([0,0,1],length(seen)-1,1); %couleur des points détectés
 scatter3(draw(:,1),draw(:,2),draw(:,3),scale,color,'filled','o');
 axis([1,siz(1),1,siz(2),1,siz(3)]);
 
 function points = cube(P1, P2)
+%retourne un nuage de points formant un cube avec les coins à P1(1x3) et P2(1x3)
+%très lent à partir de 10^5 points
     points = zeros(abs(P1(1,1)-P2(1,1))*abs(P1(1,2)-P2(1,2))*abs(P1(1,3)-P2(1,3)),3);
     j = 1;
     for x = min(P1(1,1),P2(1,1)):max(P1(1,1),P2(1,1))
@@ -96,6 +96,8 @@ function points = cube(P1, P2)
 end
 
 function ins = insert(map, pointcloud, value)
+%change la valeur des élements dans map indiqués par les élements de
+%pointcloud(~x3) et retourne la map changé
     for i = 1:length(pointcloud)
         map(pointcloud(i, 1), pointcloud(i, 2), pointcloud(i, 3)) = value;
     end
@@ -103,6 +105,11 @@ function ins = insert(map, pointcloud, value)
 end
 
 function ray = raycast(map, From, Towards, maxDist)
+%fait un raycast dans map partant de From(1x3) en direction du point
+%Towards(1x3). Tous points libres sont mis dans ray(~x3)
+%le raycast se termine ou au bord de la map ou au premier point occupé
+%il s'arrete aussi après la distance maxDist du point From
+%retourne touts points passés jusqu'à l'arret du raycast
     Dir = (Towards-From)/max(abs(Towards-From));
     if (min(From == Towards) == 1)
         ray = From;
@@ -130,10 +137,12 @@ function ray = raycast(map, From, Towards, maxDist)
 end
 
 function dist = distance(P1, P2)
+%distance entre deux points P1(1x3) et P2(1x3)
     dist = sqrt((P1(1)-P2(1))^2 + (P1(2)-P2(2))^2 + (P1(3)-P2(3))^2);
 end
 
 function demi = demisphere(radius, pos)
+%retourne touts points apartenant à une demi sphere dessous pos(1x3)
     demi = zeros(round(4*pi*radius^2),3);
     i = 1;
     for x = pos(1)-radius:pos(1)+radius
@@ -150,7 +159,8 @@ function demi = demisphere(radius, pos)
 end
 
 function b = isFrontier(map, P)
-    nbrs = zeros(6,3);
+%retourne 1 si P(1x3) est consideré comme frontière dans map(~x3) et 0 si non
+    nbrs = zeros(6,3); %neighbours
     siz = size(map);
     nbrs(1,:) = [max(P(1)-1,1),P(2),P(3)];
     nbrs(2,:) = [P(1),max(P(2)-1,1),P(3)];
