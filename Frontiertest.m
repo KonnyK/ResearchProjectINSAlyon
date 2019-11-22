@@ -1,6 +1,6 @@
 %drone_pos = [60,40,170]; %position du spectateur
 drone_maxDist = 100; %distance maximale à laquelle points sonts detectés
-resolution = 150; %affecte le nombre de raycast faits et donc directement la resolution des points vus
+resolution = 30; %affecte le nombre de raycast faits et donc directement la resolution des points vus
 %FlightPath = [[(10:6:160)',(70:-2:20)',(180:-4:80)'];[(160:-1:140)',(20:8:180)',(80:6:200)']];
 FlightPath = [60,40,170];
 FPlength = size(FlightPath);
@@ -73,7 +73,7 @@ draw = [seen;unseen];
 Length = length(draw);
 scale = 5 * ones(Length,1); %largeur des points détectés
 scale(1:FPlength) = 50; %largeur du point drone
-scale(length(seen)+1:Length) = 10; %largeur des points non détectés
+scale(length(seen)+1:Length) = 5; %largeur des points non détectés
 color = 0.5 * ones(Length, 3); %couleur des points non détectés
 color(1:FPlength,:) = repmat([1,0,0],FPlength,1); %couleur du point drone
 color(1+FPlength:length(seen),:) = repmat([0,0,1],length(seen)-FPlength,1); %couleur des points détectés
@@ -209,7 +209,7 @@ function b = isFrontier(map, P)
     for x = max(P(1)-(c-1)/2,1):min(P(1)+(c-1)/2,siz(1))
         for y = max(P(2)-(c-1)/2,1):min(P(2)+(c-1)/2,siz(2))
             for z = max(P(3)-(c-1)/2,1):min(P(3)+(c-1)/2,siz(3))
-                if (P(1) ~= x || P(2) ~= y || P(3) ~= z) && distance([x,y,z],P)<sqrt(3)
+                if (P(1) ~= x || P(2) ~= y || P(3) ~= z) && distance([x,y,z],P)<sqrt(2)
                     nbrs(n,:) = [x,y,z];
                     n = n+1;
                 end
@@ -235,3 +235,11 @@ function b = isFrontier(map, P)
     %4 b = map(P(1),P(2),P(3))==0 && unknown>occupied && unknown>0 && occupied>0;
     % b = map(P(1),P(2),P(3))==0 && unknown^(1/3)>occupied^(1/2) && occupied>0 && free<unknown;
 end
+
+
+%{
+different voisinage
+raycast angle
+visuilasi..
+edge detection?
+%}
