@@ -4,12 +4,12 @@ maxEnvs = 4;
 
 allEvaluations = zeros(maxAlgos, 5, maxEnvs, 4);
 filtering = 0;
-perfectEnv = 1;
+perfectEnv = 0;
 lastEnv = 0;
 FrontierEvaluation = zeros(maxAlgos, 5, maxEnvs);
-resolution = [360, 90]; %nombre de raycast faits [horizontal, vertical]
+resolution = 2*[360, 90]; %nombre de raycast faits [horizontal, vertical]
 
-for env=3:3
+for env=1:4
     
     drone_maxDist = 200; %distance maximale à laquelle points sonts detectés
     drone_hor_view = [0, 360]; %angle de vue du drone à l'horizontal [de, à] partant de l'axis X (sens mathématique)
@@ -109,7 +109,7 @@ for env=3:3
     edgesDetected = EdgeDetect(seenWorld);
     edgeThreshold = [0.7,1];
     
-    for algo=1:1
+    for algo=1:11
         disp(strcat('Now working on: Environment',num2str(env),',','Algorythm',num2str(algo)));
 
         alledges = zeros(200^3, 3);
@@ -163,7 +163,7 @@ for env=3:3
         nonPrimaryFront = comparePointClouds(front, mustPoints,0);
         secondaryFront = nonPrimaryFront;
         s =1;
-        if perfectEnv == 0
+        %if perfectEnv == 0
             for i = 1:length(nonPrimaryFront(:,1))
                 shortestDistance = inf;
                 for j = 1:length(mustPoints(:,1))
@@ -174,6 +174,7 @@ for env=3:3
                     s = s+1;
                 end
             end
+        %{
         else
             for i=1:length(nonPrimaryFront(:,1))
                 closestIndex = 0;
@@ -195,6 +196,7 @@ for env=3:3
                 
             end
         end
+        %}
         secondaryFront(s:end,:) = [];
         
         FrontierEvaluation(algo,1,env) = 100 * length(primaryFront(:,1))/length(mustPoints(:,1));
@@ -266,7 +268,7 @@ for env=3:3
         set(gcf, 'Visible', 'off');
     end
 end
-disp(strcat('Res:',num2str(resolution),'_PerfectEnvironment',num2str(perfectEnv)));
+disp(strcat('Res:',num2str(resolution),'_PerfectEnvironment:',num2str(perfectEnv)));
 disp(FrontierEvaluation);
 
     
