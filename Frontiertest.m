@@ -1,15 +1,17 @@
-maxAlgos = 11;
+maxAlgos = 18;
 maxEnvs = 4;
 
 
-allEvaluations = zeros(maxAlgos, 5, maxEnvs, 4);
+allEvaluations = zeros(maxAlgos, 5, maxEnvs, 3);
+for run = 1:3
+
 filtering = 0;
-perfectEnv = 0;
+perfectEnv = double(run==1);
 lastEnv = 0;
 FrontierEvaluation = zeros(maxAlgos, 5, maxEnvs);
-resolution = 2*[360, 90]; %nombre de raycast faits [horizontal, vertical]
+resolution = (run-1)*[360, 90]; %nombre de raycast faits [horizontal, vertical]
 
-for env=1:4
+for env=3:3
     
     drone_maxDist = 200; %distance maximale à laquelle points sonts detectés
     drone_hor_view = [0, 360]; %angle de vue du drone à l'horizontal [de, à] partant de l'axis X (sens mathématique)
@@ -53,6 +55,7 @@ for env=1:4
             end
             block = sphere([100,100,60], 50);
             mustPoints = circle([100,100,60],50);
+            comparePointClouds(mustPoints, block, 0);
             air = [mustPoints;cube([49,49,60], [151,151,120])];
             unk = [sphere([100,100,60], 49);cube([50,50,10],[150,150,59])];
             air2 = sphere([100,100,60], 45);
@@ -109,7 +112,7 @@ for env=1:4
     edgesDetected = EdgeDetect(seenWorld);
     edgeThreshold = [0.7,1];
     
-    for algo=1:11
+    for algo=1:18
         disp(strcat('Now working on: Environment',num2str(env),',','Algorythm',num2str(algo)));
 
         alledges = zeros(200^3, 3);
@@ -155,7 +158,12 @@ for env=1:4
         
         if perfectEnv == 0 && filtering == 1
             disp('Deleting small groups of fronts');
-            filterSmallGroups(front, 5);
+            frontMap = 0*world;
+            for i=1:length(front(:,1))
+                p = front(i,:);
+                frontMap(p(1),p(2),p(3)) = 1;
+            end
+            filterSmallGroups(frontMap, front, 5);
         end
         
         disp('Evaluating...');
@@ -163,40 +171,16 @@ for env=1:4
         nonPrimaryFront = comparePointClouds(front, mustPoints,0);
         secondaryFront = nonPrimaryFront;
         s =1;
-        %if perfectEnv == 0
-            for i = 1:length(nonPrimaryFront(:,1))
-                shortestDistance = inf;
-                for j = 1:length(mustPoints(:,1))
-                    shortestDistance = min(shortestDistance, distance(nonPrimaryFront(i,:),mustPoints(j,:))); 
-                end
-                if shortestDistance <= 5
-                    secondaryFront(s,:) = nonPrimaryFront(i,:);
-                    s = s+1;
-                end
+        for i = 1:length(nonPrimaryFront(:,1))
+            shortestDistance = inf;
+            for j = 1:length(mustPoints(:,1))
+                shortestDistance = min(shortestDistance, distance(nonPrimaryFront(i,:),mustPoints(j,:))); 
             end
-        %{
-        else
-            for i=1:length(nonPrimaryFront(:,1))
-                closestIndex = 0;
-                dist = inf;
-                for j=1:length(primaryFront(:,1))
-                    curDist = distance(primaryFront(j,:), nonPrimaryFront(i,:));
-                    if curDist < dist && curDist < 10
-                        dist = curDist;
-                        closestIndex = j;
-                    end
-                end
-                if closestIndex == 0
-                    %do nothing, this is here, so "ConnectionTo" is not
-                    %called when not needed
-                elseif ConnectionTo(front, nonPrimaryFront(i,:), mustPoints(closestIndex,:), 5, inf) > -1
-                    secondaryFront(s,:) = nonPrimaryFront(i,:);
-                    s = s+1; 
-                end
-                
+            if shortestDistance <= 5
+                secondaryFront(s,:) = nonPrimaryFront(i,:);
+                s = s+1;
             end
         end
-        %}
         secondaryFront(s:end,:) = [];
         
         FrontierEvaluation(algo,1,env) = 100 * length(primaryFront(:,1))/length(mustPoints(:,1));
@@ -204,6 +188,7 @@ for env=1:4
         FrontierEvaluation(algo,3,env) = 100 * length(secondaryFront(:,1))/length(front(:,1));
         FrontierEvaluation(algo,4,env) = 100-(FrontierEvaluation(algo,2,env)+FrontierEvaluation(algo,3,env));
         FrontierEvaluation(algo,end,env) = length(front(:,1))/1000;
+        allEvaluations(:,:,:,run) = FrontierEvaluation;
     
         if lastEnv < env
             lastEnv = env;
@@ -252,7 +237,7 @@ for env=1:4
         if perfectEnv == 1
             title = strcat('Frontiers in PerfEnv Nr.' , num2str(env) , ' Algo Nr.' , num2str(algo));
         else
-            title = strcat('Frontiers in RealEnv Nr.' , num2str(env) , ' Algo Nr.' , num2str(algo), '_Res[',num2str(resolution(1)),',',num2str(resolution(2)),']');
+            title = strcat('Frontiers in RealEnv Nr.' , num2str(env) , ' Algo Nr.' , num2str(algo), '_Res[',num2str(resolution(1)),',',num2str(resolution(2)),'] with filtering');
         end
         figure('name',title);
         draw = [seen;front];
@@ -269,8 +254,9 @@ for env=1:4
     end
 end
 disp(strcat('Res:',num2str(resolution),'_PerfectEnvironment:',num2str(perfectEnv)));
+disp('--------------------------------------------------------------');
 disp(FrontierEvaluation);
-
+end
     
 
 
@@ -450,40 +436,34 @@ end
 function b = isFrontier(map, P, algo,  edges, edgeThreshold)
 %rend 1 si P(1x3) est consideré comme frontière dans map(~x3) et 0 si non
     
-    switch algo
+    switch (mod((algo-1),9)+1)
         case 1
             voi_occ = 6;
             voi_unk = 6;
         case 2
-            voi_occ = 18;
+            voi_occ = 6;
             voi_unk = 18;
         case 3
-            voi_occ = 26;
+            voi_occ = 6;
             voi_unk = 26;
         case 4
-            voi_occ = 26;
+            voi_occ = 18;
             voi_unk = 6;
         case 5 
-            voi_occ = 6;
-            voi_unk = 26;
+            voi_occ = 18;
+            voi_unk = 18;
         case 6
             voi_occ = 18;
-            voi_unk = 6;
+            voi_unk = 26;
         case 7
-            voi_occ = 6;
-            voi_unk = 18;
-        case 8
             voi_occ = 26;
             voi_unk = 6;
-        case 9
-            voi_occ = 6;
-            voi_unk = 26;
-        case 10 
-            voi_occ = 18;
-            voi_unk = 6;
-        case 11
-            voi_occ = 6;
+        case 8
+            voi_occ = 26;
             voi_unk = 18;
+        case 9
+            voi_occ = 26;
+            voi_unk = 26;
     end
     
     occupied = getNeighbours(map, P, 1, voi_occ);
@@ -491,10 +471,10 @@ function b = isFrontier(map, P, algo,  edges, edgeThreshold)
     occupied = length(occupied(:,1));
     unknown = length(unknown(:,1));
    
-    if algo <= 7
+    if algo <= 9
         b = unknown>0 && occupied>0;
     end
-    if algo >= 8
+    if algo >= 10
         siz = size(edges);
         nbrs = edges(max(P(1)-1,1):min(P(1)+1,siz(1)), max(P(2)-1,1):min(P(2)+1,siz(2)), max(P(3)-1,1):min(P(3)+1,siz(3)));
         %isEdge = avgEdges(P(1),P(2),P(3)) >= edgeThreshold(3) && avgEdges(P(1),P(2),P(3)) <= edgeThreshold(4);
@@ -503,7 +483,7 @@ function b = isFrontier(map, P, algo,  edges, edgeThreshold)
     end
 end
 
-function b = ConnectionTo(map, point, goal, maxSteps, value)
+function b = ConnectionTo(map, point, goal, maxSteps, value, voisinage)
 %returns -1 if not connected and else the number of steps required
     b = -1;
     if (min(point == goal) == 1)
@@ -519,8 +499,15 @@ function b = ConnectionTo(map, point, goal, maxSteps, value)
             while b <= maxSteps
                 pointsFound = 0;
                 for i=1:length(map(:,1))
-                    
-                    if distance(goal, map(i,:)) < distance(goal, curPoint) && distance(curPoint, map(i,:)) < 2
+                    switch voisinage
+                        case 6
+                            maxDist = sqrt(2);
+                        case 18
+                            maxDist = sqrt(3);
+                        case 26
+                            maxDist = 2;
+                    end
+                    if distance(goal, map(i,:)) < distance(goal, curPoint) && distance(curPoint, map(i,:)) < maxDist
                         curPoint = map(i,:);
                         pointsFound = pointsFound+1;
                     end
@@ -540,7 +527,7 @@ function b = ConnectionTo(map, point, goal, maxSteps, value)
         end
     else %map i a map and only points where map(x,y,z)==value are relevant
         siz = size(map);
-        if max(point(1),goal(1)) > siz(1) || max(point(2),goal(2)) > siz(2) || max(point(3),goal(3)) > siz(3) || min(point,goal) < 1
+        if max(point(1),goal(1)) > siz(1) || max(point(2),goal(2)) > siz(2) || max(point(3),goal(3)) > siz(3) || min([point,goal]) < 1
             return;
         else
             curPoint = point;
@@ -552,8 +539,8 @@ function b = ConnectionTo(map, point, goal, maxSteps, value)
                     return;
                 end
                 
-                nbrs = getNeighbours(map, curPoint, value, 26);
-                if not(ISEMPTY(nbrs(:,1)))
+                nbrs = getNeighbours(map, curPoint, value, voisinage);
+                if length(nbrs(:,1)) > 0
                     closestDist = distance(curPoint, goal);
                     for i=1:length(nbrs(:,1))
                         if distance(nbrs(i,:),goal) < closestDist
@@ -591,13 +578,14 @@ function edges = EdgeDetect(map)
     edges(end,:,:) = [];
 end
 
-function filtered = filterSmallGroups(pCloud, minSize)
-    filtered = pCloud;
+function filtered = filterSmallGroups(map, front, minSize)
+    filtered = front;
     f = 1;
+    pCloud = front;
     for i = 1:length(pCloud(:,1))
         longestConnection = 0;
         for j = 1:length(pCloud(:,1))
-            longestConnection = max(ConnectionTo(pCloud, pCloud(i,:), pCloud(j,:), minSize,inf),longestConnection);
+            longestConnection = max(ConnectionTo(map, pCloud(i,:), pCloud(j,:), minSize,1,6),longestConnection);
         end
         if longestConnection >= minSize
             filtered(f,:) = pCloud(i,:);
